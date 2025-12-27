@@ -119,17 +119,30 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization');
+    console.log('Auth header present:', !!authHeader);
+    
     if (!authHeader) {
+      console.error('No authorization header');
       throw new Error('Authorization required');
     }
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
     const token = authHeader.replace('Bearer ', '');
+    console.log('Token length:', token.length);
+    
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
-    if (userError || !user) {
+    if (userError) {
+      console.error('User auth error:', userError.message);
+      throw new Error('Invalid user token: ' + userError.message);
+    }
+    
+    if (!user) {
+      console.error('No user returned');
       throw new Error('Invalid user token');
     }
+
+    console.log('User authenticated:', user.id);
 
     // Get user's Discogs credentials
     const { data: profile, error: profileError } = await supabase
@@ -138,7 +151,14 @@ serve(async (req) => {
       .eq('id', user.id)
       .single();
 
-    if (profileError || !profile?.discogs_oauth_token) {
+    if (profileError) {
+      console.error('Profile fetch error:', profileError.message);
+    }
+
+    console.log('Profile found:', !!profile, 'Has token:', !!profile?.discogs_oauth_token);
+
+    if (!profile?.discogs_oauth_token) {
+      console.log('Discogs not connected for user');
       return new Response(JSON.stringify({ 
         error: 'Discogs not connected',
         needs_auth: true 
@@ -152,7 +172,7 @@ serve(async (req) => {
 
     console.log(`Fetching collection for ${profile.discogs_username}, page ${page}`);
 
-    // Fetch collection - ONLY CDs (format=CD)
+    // Fetch collection - ALL releases first, then filter
     const collectionUrl = `https://api.discogs.com/users/${profile.discogs_username}/collection/folders/0/releases?page=${page}&per_page=${per_page}&sort=${sort}&sort_order=${sort_order}`;
     
     const collection = await makeDiscogsRequest(
@@ -161,17 +181,22 @@ serve(async (req) => {
       profile.discogs_oauth_token_secret
     );
 
-    // Filter for CDs only
+    console.log('Raw releases count:', collection.releases?.length);
+    
+    // Filter for CDs only - expanded format matching
     const cdReleases = collection.releases.filter((release: any) => {
       const formats = release.basic_information?.formats || [];
-      return formats.some((format: any) => 
-        format.name === 'CD' || 
-        format.name === 'CDr' || 
-        format.name === 'HDCD' ||
-        format.name === 'CD+DVD' ||
-        format.name === 'SACD'
-      );
+      return formats.some((format: any) => {
+        const name = (format.name || '').toLowerCase();
+        return name.includes('cd') || 
+               name === 'compact disc' || 
+               name === 'hdcd' ||
+               name === 'sacd' ||
+               name.includes('disc');
+      });
     });
+
+    console.log('Filtered CD releases count:', cdReleases.length);
 
     // Get collection value if available
     let collectionValue = null;
