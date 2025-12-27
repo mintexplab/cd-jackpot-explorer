@@ -14,7 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          discogs_oauth_token: string | null
+          discogs_oauth_token_secret: string | null
+          discogs_username: string | null
+          id: string
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          discogs_oauth_token?: string | null
+          discogs_oauth_token_secret?: string | null
+          discogs_username?: string | null
+          id: string
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          discogs_oauth_token?: string | null
+          discogs_oauth_token_secret?: string | null
+          discogs_username?: string | null
+          id?: string
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
