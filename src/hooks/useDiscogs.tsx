@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
+
 
 interface DiscogsRelease {
   id: number;
@@ -51,6 +52,9 @@ export function useDiscogs() {
   const [collectionValue, setCollectionValue] = useState<CollectionData['value']>(null);
   const [pagination, setPagination] = useState<CollectionData['pagination'] | null>(null);
   const [allReleases, setAllReleases] = useState<DiscogsRelease[]>([]);
+
+  // prevent toast spam in StrictMode / retries
+  const lastAuthToastAtRef = useRef(0);
 
   useEffect(() => {
     if (user) {
@@ -103,28 +107,45 @@ export function useDiscogs() {
   const completeDiscogsAuth = async (oauthToken: string, oauthVerifier: string) => {
     try {
       const tokenSecret = sessionStorage.getItem('discogs_token_secret');
-      
+      if (!tokenSecret) {
+        const now = Date.now();
+        if (now - lastAuthToastAtRef.current > 2500) {
+          lastAuthToastAtRef.current = now;
+          toast.error('Discogs authorization expired. Please connect again.');
+        }
+        return false;
+      }
+
       const { data, error } = await supabase.functions.invoke('discogs-auth', {
         body: { 
           action: 'access_token',
           oauth_token: oauthToken,
           oauth_verifier: oauthVerifier,
-          oauth_token_secret: tokenSecret
+          oauth_token_secret: tokenSecret,
         }
       });
 
       if (error) throw error;
 
       sessionStorage.removeItem('discogs_token_secret');
-      
+
       setDiscogsConnected(true);
       setDiscogsUsername(data.discogs_username);
-      toast.success(`Connected to Discogs as ${data.discogs_username}`);
-      
+
+      const now = Date.now();
+      if (now - lastAuthToastAtRef.current > 2500) {
+        lastAuthToastAtRef.current = now;
+        toast.success(`Connected to Discogs as ${data.discogs_username}`);
+      }
+
       return true;
     } catch (error) {
       console.error('Discogs auth completion error:', error);
-      toast.error('Failed to complete Discogs authentication');
+      const now = Date.now();
+      if (now - lastAuthToastAtRef.current > 2500) {
+        lastAuthToastAtRef.current = now;
+        toast.error('Failed to complete Discogs authentication');
+      }
       return false;
     }
   };
@@ -138,10 +159,25 @@ export function useDiscogs() {
         body: { page, per_page: 100 }
       });
 
-      if (error) throw error;
+      if (error) {
+        const msg = (error as any)?.message || '';
+        // If JWT/session is missing/invalid, the gateway can reject before our function runs.
+        if (msg.toLowerCase().includes('jwt') || msg.includes('401')) {
+          setDiscogsConnected(false);
+          setDiscogsUsername(null);
+          const now = Date.now();
+          if (now - lastAuthToastAtRef.current > 2500) {
+            lastAuthToastAtRef.current = now;
+            toast.error('Session expired. Please refresh and sign in again.');
+          }
+          return;
+        }
+        throw error;
+      }
 
       if (data.needs_auth) {
         setDiscogsConnected(false);
+        setDiscogsUsername(null);
         return;
       }
 

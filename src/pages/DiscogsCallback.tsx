@@ -1,17 +1,35 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Disc, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { useDiscogs } from '@/hooks/useDiscogs';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 
 export default function DiscogsCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { completeDiscogsAuth } = useDiscogs();
+  const { user, loading: authLoading } = useAuth();
+
+  const didRunRef = useRef(false);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Prevent duplicate runs (React Strict Mode + re-renders)
+    if (didRunRef.current) return;
+    if (authLoading) return;
+
+    // Must be signed in so we can securely store tokens against the user
+    if (!user) {
+      didRunRef.current = true;
+      setStatus('error');
+      setError('Your session is not ready. Please sign in again, then reconnect Discogs.');
+      return;
+    }
+
+    didRunRef.current = true;
+
     const handleCallback = async () => {
       const oauthToken = searchParams.get('oauth_token');
       const oauthVerifier = searchParams.get('oauth_verifier');
@@ -30,12 +48,12 @@ export default function DiscogsCallback() {
       }
 
       const success = await completeDiscogsAuth(oauthToken, oauthVerifier);
-      
+
       if (success) {
         setStatus('success');
         setTimeout(() => {
           navigate('/dashboard');
-        }, 2000);
+        }, 1200);
       } else {
         setStatus('error');
         setError('Failed to complete authorization.');
@@ -43,7 +61,7 @@ export default function DiscogsCallback() {
     };
 
     handleCallback();
-  }, [searchParams, completeDiscogsAuth, navigate]);
+  }, [authLoading, user, searchParams, completeDiscogsAuth, navigate]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
@@ -81,16 +99,18 @@ export default function DiscogsCallback() {
             <p className="text-muted-foreground mt-2">
               {error || 'Something went wrong. Please try again.'}
             </p>
-            <Button
-              variant="hero"
-              onClick={() => navigate('/dashboard')}
-              className="mt-6"
-            >
-              Back to Dashboard
-            </Button>
+            <div className="mt-6 flex gap-3 justify-center">
+              <Button variant="outline" onClick={() => navigate('/auth')}>
+                Sign in
+              </Button>
+              <Button variant="hero" onClick={() => navigate('/dashboard')}>
+                Back to Dashboard
+              </Button>
+            </div>
           </>
         )}
       </div>
     </div>
   );
 }
+

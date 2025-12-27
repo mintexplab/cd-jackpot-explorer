@@ -120,26 +120,33 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization');
     console.log('Auth header present:', !!authHeader);
-    
+
     if (!authHeader) {
       console.error('No authorization header');
-      throw new Error('Authorization required');
+      return new Response(JSON.stringify({
+        error: 'Authorization required',
+        needs_auth: true,
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
     const token = authHeader.replace('Bearer ', '');
     console.log('Token length:', token.length);
-    
+
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
-    if (userError) {
-      console.error('User auth error:', userError.message);
-      throw new Error('Invalid user token: ' + userError.message);
-    }
-    
-    if (!user) {
-      console.error('No user returned');
-      throw new Error('Invalid user token');
+    if (userError || !user) {
+      console.error('User auth error:', userError?.message);
+      return new Response(JSON.stringify({
+        error: 'Invalid user token',
+        needs_auth: true,
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     console.log('User authenticated:', user.id);
