@@ -1,11 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Search, Disc, Heart, ExternalLink, Loader2, X } from 'lucide-react';
+import { Search, Disc, Heart, ExternalLink, Loader2, X, ArrowLeft, ShoppingCart } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useWishlist } from '@/hooks/useWishlist';
 import { cn } from '@/lib/utils';
+import { ReleaseDetail } from './ReleaseDetail';
 
 interface SearchResult {
   id: number;
@@ -20,6 +21,7 @@ interface SearchResult {
   thumb?: string;
   uri?: string;
   type: string;
+  master_url?: string;
 }
 
 export function DiscogsSearch() {
@@ -27,7 +29,7 @@ export function DiscogsSearch() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
-  const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
+  const [selectedRelease, setSelectedRelease] = useState<SearchResult | null>(null);
   const { addToWishlist, isInWishlist } = useWishlist();
   const searchRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<NodeJS.Timeout>();
@@ -52,11 +54,23 @@ export function DiscogsSearch() {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('discogs-search', {
-        body: { query: searchQuery, format: 'CD', per_page: 10 }
+        body: { query: searchQuery, format: 'CD', per_page: 15 }
       });
 
       if (error) throw error;
-      setResults(data.results || []);
+      
+      // Filter to only show CD formats (extra client-side filtering for safety)
+      const cdResults = (data.results || []).filter((result: SearchResult) => {
+        const formats = result.format || [];
+        const formatStr = formats.join(' ').toLowerCase();
+        // Include if it contains CD and doesn't contain vinyl or cassette
+        const hasCD = formatStr.includes('cd');
+        const hasVinyl = formatStr.includes('vinyl') || formatStr.includes('lp') || formatStr.includes('12"') || formatStr.includes('7"');
+        const hasCassette = formatStr.includes('cassette') || formatStr.includes('tape');
+        return hasCD || (!hasVinyl && !hasCassette && formats.length === 0);
+      });
+      
+      setResults(cdResults);
       setShowResults(true);
     } catch (error) {
       console.error('Search error:', error);
@@ -97,9 +111,35 @@ export function DiscogsSearch() {
     });
   };
 
+  const handleSelectRelease = (result: SearchResult) => {
+    setSelectedRelease(result);
+    setShowResults(false);
+  };
+
   const openOnDiscogs = (result: SearchResult) => {
     window.open(`https://www.discogs.com${result.uri}`, '_blank');
   };
+
+  // Parse artist and title from Discogs format
+  const parseTitle = (fullTitle: string) => {
+    const parts = fullTitle.split(' - ');
+    return {
+      artist: parts.length > 1 ? parts[0] : 'Unknown Artist',
+      title: parts.length > 1 ? parts.slice(1).join(' - ') : fullTitle
+    };
+  };
+
+  // If a release is selected, show the detail view
+  if (selectedRelease) {
+    return (
+      <ReleaseDetail
+        releaseId={selectedRelease.id}
+        onBack={() => setSelectedRelease(null)}
+        onAddToWishlist={() => handleAddToWishlist(selectedRelease)}
+        isInWishlist={isInWishlist(selectedRelease.id)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -131,55 +171,76 @@ export function DiscogsSearch() {
           )}
         </div>
 
-        {/* Autocomplete Results */}
+        {/* Autocomplete Results - Discogs Style */}
         {showResults && results.length > 0 && (
-          <div className="absolute z-50 w-full mt-2 bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-fade-in">
-            <div className="max-h-[400px] overflow-y-auto">
+          <div 
+            className="absolute z-[100] w-full mt-1 rounded-lg overflow-hidden animate-fade-in"
+            style={{ 
+              backgroundColor: 'hsl(20 12% 10%)',
+              border: '1px solid hsl(25 20% 25%)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.6)'
+            }}
+          >
+            {/* Category tabs like Discogs */}
+            <div className="flex gap-4 px-4 py-2 border-b" style={{ borderColor: 'hsl(25 20% 20%)' }}>
+              <span className="text-sm font-medium text-primary border-b-2 border-primary pb-1">CDs</span>
+            </div>
+
+            <div className="max-h-[450px] overflow-y-auto">
               {results.map((result) => {
-                const parts = result.title.split(' - ');
-                const artist = parts.length > 1 ? parts[0] : 'Unknown';
-                const title = parts.length > 1 ? parts.slice(1).join(' - ') : result.title;
+                const { artist, title } = parseTitle(result.title);
                 const inWishlist = isInWishlist(result.id);
+                const formatInfo = result.format?.join(', ') || 'CD';
 
                 return (
                   <div
                     key={result.id}
-                    className="flex items-center gap-4 p-3 hover:bg-muted/50 transition-colors border-b border-border/30 last:border-0"
+                    className="flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40"
+                    style={{ borderBottom: '1px solid hsl(25 20% 15%)' }}
+                    onClick={() => handleSelectRelease(result)}
                   >
                     {/* Cover */}
-                    <div className="w-14 h-14 flex-shrink-0 rounded-lg overflow-hidden bg-muted/30">
+                    <div className="w-12 h-12 flex-shrink-0 rounded overflow-hidden" style={{ backgroundColor: 'hsl(20 12% 15%)' }}>
                       {result.thumb ? (
                         <img src={result.thumb} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <Disc className="w-6 h-6 text-muted-foreground/50" />
+                          <Disc className="w-5 h-5 text-muted-foreground/40" />
                         </div>
                       )}
                     </div>
 
-                    {/* Info */}
+                    {/* Info - Discogs style */}
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground truncate">{title}</p>
-                      <p className="text-sm text-muted-foreground truncate">{artist}</p>
-                      <div className="flex items-center gap-2 mt-1">
+                      <p className="font-semibold text-primary hover:underline truncate">{title}</p>
+                      <p className="text-sm text-foreground/80 truncate">{artist}</p>
+                      <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                        <Disc className="w-3 h-3" />
+                        <span>{formatInfo}</span>
                         {result.year && (
-                          <Badge variant="secondary" className="text-xs">{result.year}</Badge>
+                          <>
+                            <span>•</span>
+                            <span>{result.year}</span>
+                          </>
                         )}
-                        {result.genre?.[0] && (
-                          <span className="text-xs text-muted-foreground/70">{result.genre[0]}</span>
+                        {result.country && (
+                          <>
+                            <span>•</span>
+                            <span>{result.country}</span>
+                          </>
                         )}
                       </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-2">
+                    {/* Quick Actions */}
+                    <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => handleAddToWishlist(result)}
                         disabled={inWishlist}
                         className={cn(
-                          "h-9 w-9",
+                          "h-8 w-8",
                           inWishlist && "text-red-500"
                         )}
                       >
@@ -189,7 +250,7 @@ export function DiscogsSearch() {
                         variant="ghost"
                         size="icon"
                         onClick={() => openOnDiscogs(result)}
-                        className="h-9 w-9"
+                        className="h-8 w-8"
                       >
                         <ExternalLink className="w-4 h-4" />
                       </Button>
@@ -199,21 +260,30 @@ export function DiscogsSearch() {
               })}
             </div>
             
-            <div className="p-3 bg-muted/30 border-t border-border/50 text-center">
-              <a 
-                href={`https://www.discogs.com/search/?q=${encodeURIComponent(query)}&format=CD`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-primary hover:underline"
-              >
-                View all results on Discogs Marketplace →
-              </a>
-            </div>
+            {/* View all results footer */}
+            <a 
+              href={`https://www.discogs.com/search/?q=${encodeURIComponent(query)}&format=CD`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted/30 transition-colors"
+              style={{ borderTop: '1px solid hsl(25 20% 20%)', backgroundColor: 'hsl(20 12% 8%)' }}
+            >
+              <span className="text-muted-foreground">View all results</span>
+              <span className="text-primary">→</span>
+            </a>
           </div>
         )}
 
+        {/* No results state */}
         {showResults && query.length >= 2 && results.length === 0 && !loading && (
-          <div className="absolute z-50 w-full mt-2 p-6 bg-card border border-border rounded-xl shadow-xl text-center animate-fade-in">
+          <div 
+            className="absolute z-[100] w-full mt-1 p-6 rounded-lg text-center animate-fade-in"
+            style={{ 
+              backgroundColor: 'hsl(20 12% 10%)',
+              border: '1px solid hsl(25 20% 25%)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.6)'
+            }}
+          >
             <Disc className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
             <p className="text-muted-foreground">No CDs found for "{query}"</p>
             <a 
