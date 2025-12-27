@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      price_alerts: {
+        Row: {
+          alert_sent_at: string | null
+          created_at: string
+          currency: string | null
+          discogs_release_id: number
+          id: string
+          last_checked_at: string | null
+          last_median_price: number | null
+          last_min_price: number | null
+          target_price: number | null
+          user_id: string
+          wishlist_id: string
+        }
+        Insert: {
+          alert_sent_at?: string | null
+          created_at?: string
+          currency?: string | null
+          discogs_release_id: number
+          id?: string
+          last_checked_at?: string | null
+          last_median_price?: number | null
+          last_min_price?: number | null
+          target_price?: number | null
+          user_id: string
+          wishlist_id: string
+        }
+        Update: {
+          alert_sent_at?: string | null
+          created_at?: string
+          currency?: string | null
+          discogs_release_id?: number
+          id?: string
+          last_checked_at?: string | null
+          last_median_price?: number | null
+          last_min_price?: number | null
+          target_price?: number | null
+          user_id?: string
+          wishlist_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_alerts_wishlist_id_fkey"
+            columns: ["wishlist_id"]
+            isOneToOne: false
+            referencedRelation: "wishlist"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

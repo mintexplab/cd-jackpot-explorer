@@ -1,7 +1,25 @@
-import { Heart, Trash2, ExternalLink, Disc, ShoppingCart } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Heart, Trash2, ExternalLink, Disc, ShoppingCart, Bell, BellOff, DollarSign, Loader2, TrendingDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { useWishlist, WishlistItem } from '@/hooks/useWishlist';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+
+interface PriceData {
+  min_price: number | null;
+  for_sale_count: number;
+  suggested_price?: number;
+  currency: string;
+}
 
 export function WishlistGrid() {
   const { wishlist, loading, removeFromWishlist } = useWishlist();
@@ -50,6 +68,56 @@ export function WishlistGrid() {
 }
 
 function WishlistCard({ item, onRemove }: { item: WishlistItem; onRemove: (id: string) => void }) {
+  const [priceData, setPriceData] = useState<PriceData | null>(null);
+  const [loadingPrice, setLoadingPrice] = useState(false);
+  const [alertDialogOpen, setAlertDialogOpen] = useState(false);
+  const [targetPrice, setTargetPrice] = useState('');
+  const [settingAlert, setSettingAlert] = useState(false);
+
+  const fetchPrice = async () => {
+    setLoadingPrice(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('discogs-price', {
+        body: { release_id: item.discogs_release_id }
+      });
+
+      if (error) throw error;
+      setPriceData(data);
+    } catch (error) {
+      console.error('Failed to fetch price:', error);
+    } finally {
+      setLoadingPrice(false);
+    }
+  };
+
+  const setAlert = async () => {
+    if (!targetPrice || isNaN(parseFloat(targetPrice))) {
+      toast.error('Please enter a valid price');
+      return;
+    }
+
+    setSettingAlert(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('discogs-price', {
+        body: { 
+          release_id: item.discogs_release_id,
+          action: 'set_alert',
+          wishlist_id: item.id,
+          target_price: parseFloat(targetPrice)
+        }
+      });
+
+      if (error) throw error;
+      toast.success(`Alert set! You'll be notified when price drops below $${targetPrice}`);
+      setAlertDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to set alert:', error);
+      toast.error('Failed to set price alert');
+    } finally {
+      setSettingAlert(false);
+    }
+  };
+
   const openOnDiscogs = () => {
     window.open(`https://www.discogs.com/release/${item.discogs_release_id}`, '_blank');
   };
@@ -86,14 +154,94 @@ function WishlistCard({ item, onRemove }: { item: WishlistItem; onRemove: (id: s
           {item.genres?.[0] && (
             <Badge variant="outline" className="text-xs">{item.genres[0]}</Badge>
           )}
-          {item.labels?.[0] && (
-            <span className="text-xs text-muted-foreground/70 truncate">{item.labels[0]}</span>
+          {priceData && priceData.min_price && (
+            <Badge variant="default" className="text-xs bg-green-600">
+              From ${priceData.min_price.toFixed(2)}
+            </Badge>
+          )}
+          {priceData && priceData.for_sale_count > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {priceData.for_sale_count} for sale
+            </span>
           )}
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* Price & Actions */}
+      <div className="flex items-center gap-2">
+        {/* Check Price Button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={fetchPrice}
+          disabled={loadingPrice}
+          className="gap-1 text-muted-foreground hover:text-green-500"
+        >
+          {loadingPrice ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <DollarSign className="w-4 h-4" />
+          )}
+          <span className="hidden sm:inline">
+            {priceData ? 'Refresh' : 'Check Price'}
+          </span>
+        </Button>
+
+        {/* Price Alert Dialog */}
+        <Dialog open={alertDialogOpen} onOpenChange={setAlertDialogOpen}>
+          <DialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 text-muted-foreground hover:text-primary"
+            >
+              <Bell className="w-4 h-4" />
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <TrendingDown className="w-5 h-5 text-primary" />
+                Set Price Alert
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Get notified when "{item.title}" drops below your target price.
+                </p>
+                {priceData?.min_price && (
+                  <p className="text-sm">
+                    Current lowest price: <span className="text-green-500 font-medium">${priceData.min_price.toFixed(2)}</span>
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">$</span>
+                <Input
+                  type="number"
+                  placeholder="Enter target price"
+                  value={targetPrice}
+                  onChange={(e) => setTargetPrice(e.target.value)}
+                  className="flex-1"
+                />
+              </div>
+              <Button 
+                onClick={setAlert} 
+                disabled={settingAlert}
+                className="w-full"
+              >
+                {settingAlert ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Bell className="w-4 h-4 mr-2" />
+                )}
+                Set Alert
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <Button
           variant="outline"
           size="sm"
