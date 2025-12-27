@@ -14,7 +14,17 @@ serve(async (req) => {
   }
 
   try {
-    const { query, type = 'release', format = 'CD', page = 1, per_page = 20 } = await req.json();
+    const { 
+      query, 
+      type = 'release', 
+      format = 'CD', 
+      page = 1, 
+      per_page = 20,
+      year_from,
+      year_to,
+      genre,
+      country
+    } = await req.json();
     
     if (!query || query.trim().length < 2) {
       return new Response(JSON.stringify({ results: [], pagination: { pages: 0, items: 0 } }), {
@@ -22,9 +32,9 @@ serve(async (req) => {
       });
     }
 
-    console.log('Searching Discogs for:', query, 'type:', type, 'format:', format);
+    console.log('Searching Discogs for:', query, 'filters:', { type, format, year_from, year_to, genre, country });
 
-    // Build search URL with format filter for CDs
+    // Build search URL with format filter for CDs and additional filters
     const searchParams = new URLSearchParams({
       q: query,
       type: type,
@@ -32,6 +42,23 @@ serve(async (req) => {
       page: page.toString(),
       per_page: per_page.toString(),
     });
+
+    // Add optional filters
+    if (year_from && year_to) {
+      searchParams.set('year', `${year_from}-${year_to}`);
+    } else if (year_from) {
+      searchParams.set('year', `${year_from}-${new Date().getFullYear()}`);
+    } else if (year_to) {
+      searchParams.set('year', `1900-${year_to}`);
+    }
+
+    if (genre) {
+      searchParams.set('genre', genre);
+    }
+
+    if (country) {
+      searchParams.set('country', country);
+    }
 
     const searchUrl = `https://api.discogs.com/database/search?${searchParams.toString()}`;
     
