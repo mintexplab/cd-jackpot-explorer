@@ -174,11 +174,12 @@ export function DiscogsSearch() {
         {/* Autocomplete Results - Discogs Style */}
         {showResults && results.length > 0 && (
           <div 
-            className="absolute z-[100] w-full mt-1 rounded-lg overflow-hidden animate-fade-in"
+            className="absolute left-0 right-0 z-[9999] mt-2 rounded-lg overflow-hidden animate-fade-in"
             style={{ 
               backgroundColor: 'hsl(20 12% 10%)',
               border: '1px solid hsl(25 20% 25%)',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.6)'
+              boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+              top: '100%'
             }}
           >
             {/* Category tabs like Discogs */}
@@ -277,11 +278,12 @@ export function DiscogsSearch() {
         {/* No results state */}
         {showResults && query.length >= 2 && results.length === 0 && !loading && (
           <div 
-            className="absolute z-[100] w-full mt-1 p-6 rounded-lg text-center animate-fade-in"
+            className="absolute left-0 right-0 z-[9999] mt-2 p-6 rounded-lg text-center animate-fade-in"
             style={{ 
               backgroundColor: 'hsl(20 12% 10%)',
               border: '1px solid hsl(25 20% 25%)',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.6)'
+              boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+              top: '100%'
             }}
           >
             <Disc className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />

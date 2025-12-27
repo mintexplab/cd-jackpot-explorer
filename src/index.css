@@ -149,7 +149,7 @@
 
 @layer components {
   .stat-card {
-    @apply relative overflow-hidden rounded-xl border border-border/50 p-6 transition-all duration-300;
+    @apply relative rounded-xl border border-border/50 p-6 transition-all duration-300;
     background: var(--gradient-card);
     box-shadow: var(--shadow-card);
   }
