@@ -1,4 +1,5 @@
-import { Disc3, ExternalLink, Check, Unlink } from 'lucide-react';
+import { useState } from 'react';
+import { Disc3, ExternalLink, Check, Unlink, Disc } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface DiscogsConnectProps {
@@ -9,6 +10,14 @@ interface DiscogsConnectProps {
 }
 
 export function DiscogsConnect({ connected, username, onConnect, onDisconnect }: DiscogsConnectProps) {
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  const handleConnect = async () => {
+    setIsConnecting(true);
+    onConnect();
+    // Note: The page will redirect, so we don't need to reset this
+  };
+
   if (connected) {
     return (
       <div className="stat-card">
@@ -36,6 +45,29 @@ export function DiscogsConnect({ connected, username, onConnect, onDisconnect }:
     );
   }
 
+  if (isConnecting) {
+    return (
+      <div className="stat-card border-dashed border-2 border-primary/30">
+        <div className="flex flex-col items-center gap-6 py-8">
+          <div className="relative">
+            <div className="p-6 rounded-full bg-primary/10">
+              <Disc className="w-16 h-16 text-primary animate-spin" style={{ animationDuration: '2s' }} />
+            </div>
+            <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" style={{ animationDuration: '1.5s' }} />
+          </div>
+          <div className="text-center">
+            <h3 className="font-display text-2xl text-foreground tracking-wide">
+              CONNECTING TO DISCOGS
+            </h3>
+            <p className="text-muted-foreground mt-2">
+              Redirecting you to authorize access...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="stat-card border-dashed border-2 border-primary/30">
       <div className="flex flex-col sm:flex-row items-center gap-6 py-4">
@@ -51,7 +83,7 @@ export function DiscogsConnect({ connected, username, onConnect, onDisconnect }:
             We'll only access your collection data.
           </p>
         </div>
-        <Button variant="hero" size="lg" onClick={onConnect} className="gap-2">
+        <Button variant="hero" size="lg" onClick={handleConnect} className="gap-2">
           <ExternalLink className="w-5 h-5" />
           Connect Discogs
         </Button>

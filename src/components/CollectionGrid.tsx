@@ -20,12 +20,36 @@ export function CollectionGrid({ releases, loading }: CollectionGridProps) {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('added');
   const [genreFilter, setGenreFilter] = useState('all');
+  const [decadeFilter, setDecadeFilter] = useState('all');
+  const [labelFilter, setLabelFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Get unique genres
   const genres = useMemo(() => {
     const allGenres = releases.flatMap(r => r.basic_information?.genres || []);
     return [...new Set(allGenres)].sort();
+  }, [releases]);
+
+  // Get unique decades
+  const decades = useMemo(() => {
+    const allDecades = releases
+      .map(r => {
+        const year = r.basic_information?.year;
+        if (year && year > 1900) {
+          return `${Math.floor(year / 10) * 10}s`;
+        }
+        return null;
+      })
+      .filter(Boolean) as string[];
+    return [...new Set(allDecades)].sort();
+  }, [releases]);
+
+  // Get unique labels
+  const labels = useMemo(() => {
+    const allLabels = releases.flatMap(r => 
+      r.basic_information?.labels?.map((l: any) => l.name) || []
+    );
+    return [...new Set(allLabels)].sort();
   }, [releases]);
 
   // Filter and sort releases
@@ -49,6 +73,25 @@ export function CollectionGrid({ releases, loading }: CollectionGridProps) {
       );
     }
 
+    // Decade filter
+    if (decadeFilter !== 'all') {
+      result = result.filter(r => {
+        const year = r.basic_information?.year;
+        if (year && year > 1900) {
+          const decade = `${Math.floor(year / 10) * 10}s`;
+          return decade === decadeFilter;
+        }
+        return false;
+      });
+    }
+
+    // Label filter
+    if (labelFilter !== 'all') {
+      result = result.filter(r => 
+        r.basic_information?.labels?.some((l: any) => l.name === labelFilter)
+      );
+    }
+
     // Sort
     result.sort((a, b) => {
       switch (sortBy) {
@@ -69,7 +112,7 @@ export function CollectionGrid({ releases, loading }: CollectionGridProps) {
     });
 
     return result;
-  }, [releases, search, sortBy, genreFilter]);
+  }, [releases, search, sortBy, genreFilter, decadeFilter, labelFilter]);
 
   if (loading) {
     return (
@@ -87,57 +130,106 @@ export function CollectionGrid({ releases, loading }: CollectionGridProps) {
   return (
     <div className="space-y-6">
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by title or artist..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 bg-card border-border/50"
-          />
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by title or artist..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10 bg-card border-border/50"
+            />
+          </div>
+          
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-full sm:w-[150px] bg-card border-border/50">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="added">Date Added</SelectItem>
+              <SelectItem value="artist">Artist</SelectItem>
+              <SelectItem value="title">Title</SelectItem>
+              <SelectItem value="year">Year</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <div className="flex gap-1">
+            <Button
+              variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+              size="icon"
+              onClick={() => setViewMode('grid')}
+            >
+              <Grid3X3 className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              size="icon"
+              onClick={() => setViewMode('list')}
+            >
+              <List className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
-        
-        <Select value={genreFilter} onValueChange={setGenreFilter}>
-          <SelectTrigger className="w-full sm:w-[180px] bg-card border-border/50">
-            <Filter className="w-4 h-4 mr-2" />
-            <SelectValue placeholder="All Genres" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Genres</SelectItem>
-            {genres.map(genre => (
-              <SelectItem key={genre} value={genre}>{genre}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
 
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-full sm:w-[150px] bg-card border-border/50">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="added">Date Added</SelectItem>
-            <SelectItem value="artist">Artist</SelectItem>
-            <SelectItem value="title">Title</SelectItem>
-            <SelectItem value="year">Year</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Filter row */}
+        <div className="flex flex-wrap gap-3">
+          <Select value={genreFilter} onValueChange={setGenreFilter}>
+            <SelectTrigger className="w-full sm:w-[160px] bg-card border-border/50">
+              <Filter className="w-4 h-4 mr-2" />
+              <SelectValue placeholder="All Genres" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Genres</SelectItem>
+              {genres.map(genre => (
+                <SelectItem key={genre} value={genre}>{genre}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <div className="flex gap-1">
-          <Button
-            variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-            size="icon"
-            onClick={() => setViewMode('grid')}
-          >
-            <Grid3X3 className="w-4 h-4" />
-          </Button>
-          <Button
-            variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-            size="icon"
-            onClick={() => setViewMode('list')}
-          >
-            <List className="w-4 h-4" />
-          </Button>
+          <Select value={decadeFilter} onValueChange={setDecadeFilter}>
+            <SelectTrigger className="w-full sm:w-[140px] bg-card border-border/50">
+              <SelectValue placeholder="All Decades" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Decades</SelectItem>
+              {decades.map(decade => (
+                <SelectItem key={decade} value={decade}>{decade}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={labelFilter} onValueChange={setLabelFilter}>
+            <SelectTrigger className="w-full sm:w-[180px] bg-card border-border/50">
+              <SelectValue placeholder="All Labels" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Labels</SelectItem>
+              {labels.slice(0, 50).map(label => (
+                <SelectItem key={label} value={label}>{label}</SelectItem>
+              ))}
+              {labels.length > 50 && (
+                <SelectItem value="" disabled className="text-muted-foreground">
+                  + {labels.length - 50} more labels
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+
+          {(genreFilter !== 'all' || decadeFilter !== 'all' || labelFilter !== 'all') && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => {
+                setGenreFilter('all');
+                setDecadeFilter('all');
+                setLabelFilter('all');
+              }}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Clear filters
+            </Button>
+          )}
         </div>
       </div>
 
