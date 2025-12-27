@@ -1,1 +1,10 @@
 project_id = "nesaccllkjgxhhqbfbho"
+
+[functions.discogs-auth]
+verify_jwt = false
+
+[functions.discogs-collection]
+verify_jwt = true
+
+[functions.analyze-collection]
+verify_jwt = true
