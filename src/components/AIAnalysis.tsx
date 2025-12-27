@@ -30,9 +30,22 @@ export function AIAnalysis({ collection }: AIAnalysisProps) {
         body: { collection, analysisType: type }
       });
 
-      if (error) throw error;
+      if (error) {
+        // Check for specific error types
+        const errMsg = (error as any)?.message || '';
+        if (errMsg.includes('401') || errMsg.toLowerCase().includes('jwt')) {
+          throw new Error('Session expired. Please sign in again.');
+        }
+        if (errMsg.includes('429')) {
+          throw new Error('Too many requests. Please wait a moment.');
+        }
+        if (errMsg.includes('402')) {
+          throw new Error('AI credits exhausted. Try again later.');
+        }
+        throw error;
+      }
 
-      if (data.error) {
+      if (data?.error) {
         throw new Error(data.error);
       }
 
