@@ -47,6 +47,51 @@ export type Database = {
         }
         Relationships: []
       }
+      wishlist: {
+        Row: {
+          artist: string
+          cover_image: string | null
+          created_at: string
+          discogs_release_id: number
+          genres: string[] | null
+          id: string
+          labels: string[] | null
+          notes: string | null
+          thumb: string | null
+          title: string
+          user_id: string
+          year: number | null
+        }
+        Insert: {
+          artist: string
+          cover_image?: string | null
+          created_at?: string
+          discogs_release_id: number
+          genres?: string[] | null
+          id?: string
+          labels?: string[] | null
+          notes?: string | null
+          thumb?: string | null
+          title: string
+          user_id: string
+          year?: number | null
+        }
+        Update: {
+          artist?: string
+          cover_image?: string | null
+          created_at?: string
+          discogs_release_id?: number
+          genres?: string[] | null
+          id?: string
+          labels?: string[] | null
+          notes?: string | null
+          thumb?: string | null
+          title?: string
+          user_id?: string
+          year?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

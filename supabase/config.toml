@@ -6,5 +6,8 @@ verify_jwt = false
 [functions.discogs-collection]
 verify_jwt = true
 
+[functions.discogs-search]
+verify_jwt = false
+
 [functions.analyze-collection]
 verify_jwt = true
