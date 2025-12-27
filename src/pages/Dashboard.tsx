@@ -5,6 +5,8 @@ import { Header } from '@/components/Header';
 import { DiscogsConnect } from '@/components/DiscogsConnect';
 import { CollectionStats } from '@/components/CollectionStats';
 import { CollectionGrid } from '@/components/CollectionGrid';
+import { CollectionCharts } from '@/components/CollectionCharts';
+import { MostValuableCDs } from '@/components/MostValuableCDs';
 import { AIAnalysis } from '@/components/AIAnalysis';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
@@ -102,6 +104,9 @@ export default function Dashboard() {
                     <TabsTrigger value="collection" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                       Collection
                     </TabsTrigger>
+                    <TabsTrigger value="insights" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                      Insights
+                    </TabsTrigger>
                     <TabsTrigger value="analysis" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                       AI Analysis
                     </TabsTrigger>
@@ -120,6 +125,11 @@ export default function Dashboard() {
 
                 <TabsContent value="collection" className="mt-6">
                   <CollectionGrid releases={allReleases} loading={loading} />
+                </TabsContent>
+
+                <TabsContent value="insights" className="mt-6 space-y-6">
+                  <CollectionCharts releases={allReleases} />
+                  <MostValuableCDs releases={allReleases} />
                 </TabsContent>
 
                 <TabsContent value="analysis" className="mt-6">

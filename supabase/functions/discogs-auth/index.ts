@@ -63,7 +63,8 @@ serve(async (req) => {
   }
 
   try {
-    const { action, oauth_token, oauth_verifier, callback_url } = await req.json();
+    const body = await req.json();
+    const { action, oauth_token, oauth_verifier, callback_url, oauth_token_secret } = body;
     console.log('Discogs auth action:', action);
 
     if (!DISCOGS_CONSUMER_KEY || !DISCOGS_CONSUMER_SECRET) {
@@ -148,8 +149,7 @@ serve(async (req) => {
         throw new Error('Invalid user token');
       }
 
-      // Get stored request token secret from session or pass it
-      const { oauth_token_secret } = await req.json().catch(() => ({}));
+      console.log('Processing access token with oauth_token_secret:', oauth_token_secret ? 'present' : 'missing');
       
       const accessTokenUrl = 'https://api.discogs.com/oauth/access_token';
       const nonce = generateNonce();
